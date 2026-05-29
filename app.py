@@ -4,6 +4,8 @@ import io
 import zipfile
 import gc
 import psutil
+import pandas as pd
+from datetime import datetime
 from typing import Dict, List, Any
 from engine import (
     calculate_sha256,
@@ -212,30 +214,30 @@ cyber_style = """
         background: #D90429;
     }
 
-    /* Diagnostic Table Style */
-    .cyber-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 15px 0;
-        font-size: 0.85rem;
+    /* Pulsing breathing keyframe animation for the status card */
+    @keyframes pulse-glow {
+        0% {
+            box-shadow: 0 0 5px rgba(217, 4, 41, 0.15);
+            border-color: #2B2D42;
+        }
+        50% {
+            box-shadow: 0 0 20px rgba(217, 4, 41, 0.5);
+            border-color: #D90429;
+        }
+        100% {
+            box-shadow: 0 0 5px rgba(217, 4, 41, 0.15);
+            border-color: #2B2D42;
+        }
     }
-    .cyber-table th {
-        background-color: #1A1A24;
-        border-bottom: 2px solid #2B2D42;
-        color: #D90429;
-        padding: 10px;
-        text-align: left;
-        text-transform: uppercase;
-        font-size: 0.75rem;
-    }
-    .cyber-table td {
-        border-bottom: 1px solid #1A1A24;
-        padding: 10px;
-        color: #EDF2F4;
-        font-family: 'Space Mono', monospace;
-    }
-    .cyber-table tr:hover {
-        background-color: rgba(217, 4, 41, 0.04);
+    
+    .idle-status-card {
+        background-color: #1A1A24 !important;
+        border: 1px solid #2B2D42 !important;
+        border-radius: 6px !important;
+        padding: 40px 20px !important;
+        text-align: center !important;
+        margin: 25px 0 !important;
+        animation: pulse-glow 3s infinite ease-in-out !important;
     }
     
     /* Fix standard Streamlit block padding */
@@ -256,7 +258,7 @@ if "passwords_cache" not in st.session_state:
     st.session_state.passwords_cache = {}
 if "audit_logs" not in st.session_state:
     st.session_state.audit_logs = [
-        f"[{time.strftime('%H:%M:%S')}] [SYSTEM] RedPurge PDF Forensics Engine initialized."
+        f"[{datetime.now().strftime('%H:%M:%S')}] [SYSTEM] Workspace baseline restored. Monospaced forensic listener active..."
     ]
 if "diagnostics_ram" not in st.session_state:
     # Seed with initial RAM usage
@@ -272,7 +274,7 @@ def add_audit_log(category: str, message: str):
     """
     Appends a formatted, timestamped log line to the session state log tracker.
     """
-    timestamp = time.strftime("%H:%M:%S")
+    timestamp = datetime.now().strftime("%H:%M:%S")
     log_line = f"[{timestamp}] [{category}] {message}"
     st.session_state.audit_logs.append(log_line)
 
@@ -322,11 +324,13 @@ with st.sidebar:
     st.markdown(telemetry_html, unsafe_allow_html=True)
 
     st.markdown('<div style="border-top: 1px solid #2B2D42; margin: 15px 0;"></div>', unsafe_allow_html=True)
-    # Wipe Workspace Button in Sidebar
+    # Wipe Workspace Button in Sidebar (Restores baseline system entry)
     if st.button("🧹 Clear Workspace", key="sidebar_reset"):
         st.session_state.files_cache = {}
         st.session_state.passwords_cache = {}
-        st.session_state.audit_logs = []
+        st.session_state.audit_logs = [
+            f"[{datetime.now().strftime('%H:%M:%S')}] [SYSTEM] Workspace baseline restored. Monospaced forensic listener active..."
+        ]
         st.session_state.diagnostics_ram = []
         
         # Enforce manual garbage collection for Zero-Retention compliance
@@ -449,7 +453,8 @@ if uploaded_files:
                 "fields_purged": 0,
                 "page_elements_scrubbed": 0,
                 "error": err_msg,
-                "validation": None
+                "validation": None,
+                "neutralized_log": {}
             }
             
             ram_post_ingest = get_current_ram()
@@ -458,6 +463,24 @@ if uploaded_files:
                 "action": f"INGEST({filename[:10]})",
                 "ram_mb": ram_post_ingest
             })
+
+# ---------------------------------------------------------
+# AWAITING FORENSIC INGESTION PULSING PLACEHOLDER
+# ---------------------------------------------------------
+if len(st.session_state.files_cache) == 0:
+    st.markdown(
+        """
+        <div class="idle-status-card">
+            <span style="font-size: 2.5rem; display: block; margin-bottom: 12px;">🛡️</span>
+            <h4 style="color: #EDF2F4; margin: 0; font-weight: bold; letter-spacing: 2px; font-family: 'Space Mono', Courier, monospace;" class="neon-text-red">SYSTEM STATUS: IDLE</h4>
+            <p style="color: #8D99AE; font-size: 0.85rem; margin-top: 12px; font-family: 'Space Mono', monospace; line-height: 1.6;">
+                [LISTENING FOR TARGET ACQUISITIONS ON PORT 100MB]<br>
+                Awaiting forensic ingestion. Drag and drop target PDF files into the dropzone to initialize the threat scanner.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # ---------------------------------------------------------
 # 6. ENCRYPTION WARNING & DECRYPTION PORTAL
@@ -566,71 +589,69 @@ if active_ingested:
             st.rerun()
 
 # ---------------------------------------------------------
-# 8. DIAGNOSTIC DIAGRAM & COMPARISON METADATA TABLE
+# 8. DIAGNOSTIC DATA TABLE WITH HIGH-CONTRAST PANDAS STYLING
 # ---------------------------------------------------------
 if st.session_state.files_cache:
     st.markdown("### 📋 FORENSIC DIAGNOSTIC DATA TABLE")
     
-    # Custom HTML Table for vibrant high-contrast cyber theme
-    table_html = """
-    <table class="cyber-table">
-        <thead>
-            <tr>
-                <th>Target File Name</th>
-                <th>Cryptographic Ingestion Hash (SHA-256)</th>
-                <th>Forensic Status</th>
-                <th>Sanitized Cryptographic Hash (SHA-256)</th>
-                <th>Chain Integrity Verified</th>
-            </tr>
-        </thead>
-        <tbody>
-    """
-    
+    rows = []
     for fname, fdata in st.session_state.files_cache.items():
         original_h = fdata["original_hash"]
         status = fdata["status"]
         cleaned_h = fdata["cleaned_hash"] if fdata["cleaned_hash"] else "N/A"
         
-        status_color = "#8D99AE"
-        if status == "Ingested":
-            status_color = "#FFB020"
-        elif status == "Encrypted":
-            status_color = "#D90429"
-        elif status == "Sanitized":
-            status_color = "#00C853"
-        elif status == "Corrupted":
-            status_color = "#D90429"
-            
-        status_span = f'<span style="color: {status_color}; font-weight: bold;">{status.upper()}</span>'
-        
-        # Verify if hash changed mathematically
+        # Verify status translation
         if status == "Sanitized":
-            verification_status = "🧬 PURGED & ALTERED"
-            verification_color = "#00C853"
+            verification = "🧬 PURGED & ALTERED"
         elif status == "Oversized":
-            verification_status = "⚠️ BLOCKED (BVA)"
-            verification_color = "#D90429"
+            verification = "⚠️ BLOCKED (BVA)"
         elif status == "Corrupted":
-            verification_status = "❌ STRUCT ERROR"
-            verification_color = "#D90429"
+            verification = "❌ STRUCT ERROR"
+        elif status == "Encrypted":
+            verification = "🔒 LOCKED (ENCRYPTED)"
         else:
-            verification_status = "🔒 UNRESOLVED CHAIN"
-            verification_color = "#FFB020"
+            verification = "⏳ INGESTED / AWAITING PURGE"
             
-        verification_span = f'<span style="color: {verification_color}; font-weight: bold;">{verification_status}</span>'
+        rows.append({
+            "Target File Name": fname,
+            "Ingestion SHA-256": original_h if original_h == "BLOCKED" else f"{original_h[:24]}...",
+            "Forensic Status": status.upper(),
+            "Sanitized SHA-256": cleaned_h if cleaned_h == "N/A" else f"{cleaned_h[:24]}...",
+            "Integrity Verification": verification
+        })
         
-        table_html += f"""
-        <tr>
-            <td>{fname}</td>
-            <td style="font-size:0.75rem; color:#8D99AE;">{original_h}</td>
-            <td>{status_span}</td>
-            <td style="font-size:0.75rem; color:#8D99AE;">{cleaned_h}</td>
-            <td>{verification_span}</td>
-        </tr>
-        """
-        
-    table_html += "</tbody></table>"
-    st.markdown(table_html, unsafe_allow_html=True)
+    df = pd.DataFrame(rows)
+    
+    # 3. HIGH-CONTRAST HIGHLIGHTS PANDAS STYLING RULES
+    def highlight_rows(row):
+        status = row["Forensic Status"]
+        # Apply row-level background tinting for scannability
+        if status == "SANITIZED":
+            # Subtle crimson background tint for sanitized elements
+            return ['background-color: rgba(217, 4, 41, 0.05); color: #EDF2F4; border-bottom: 1px solid #2B2D42;'] * len(row)
+        elif status == "CORRUPTED" or status == "OVERSIZED":
+            # Amber/Red alert row-tint
+            return ['background-color: rgba(217, 4, 41, 0.1); color: #8D99AE; border-bottom: 1px solid #2B2D42;'] * len(row)
+        return ['border-bottom: 1px solid #1A1A24; color: #EDF2F4;'] * len(row)
+
+    def highlight_cols(val):
+        # Apply high-contrast text color highlights specifically for post-sanitization status tracking
+        if val == "SANITIZED" or val == "🧬 PURGED & ALTERED":
+            return 'color: #00C853 !important; font-weight: bold;'
+        elif val == "ENCRYPTED" or val == "❌ STRUCT ERROR" or val == "🔒 LOCKED (ENCRYPTED)":
+            return 'color: #D90429 !important; font-weight: bold;'
+        elif val == "⚠️ BLOCKED (BVA)" or val == "OVERSIZED":
+            return 'color: #FFB020 !important; font-weight: bold;'
+        return ''
+
+    # Chain row styles and cell maps
+    styled_df = df.style.apply(highlight_rows, axis=1).map(highlight_cols)
+    
+    st.dataframe(
+        styled_df,
+        use_container_width=True,
+        hide_index=True
+    )
 
 # ---------------------------------------------------------
 # 9. SMART DOWNLOAD SYSTEM (100% IN-MEMORY ZIP / PDF)
